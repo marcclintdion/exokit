@@ -504,6 +504,8 @@ const mlPresentState = {
   mlMsFbo: null,
   mlMsTex: null,
   mlMsDepthTex: null,
+  mlHwColorTex: null,
+  mlHwDepthTex: null,
   mlGlContext: null,
   mlCleanups: null,
   mlHasPose: false,
@@ -540,6 +542,8 @@ if (nativeMl) {
             msColorTex: msTex,
             msDepthStencilTex: msDepthTex,
           } = initResult;
+          const hwTex = 0; // populated per-frame
+          const hwDepthTex = 0;
           const width = halfWidth * 2;
           renderWidth = halfWidth;
           renderHeight = height;
@@ -550,6 +554,8 @@ if (nativeMl) {
           mlPresentState.mlMsFbo = msFbo;
           mlPresentState.mlMsTex = msTex;
           mlPresentState.mlMsDepthTex = msDepthTex;
+          mlPresentState.mlHwColorTex = hwTex;
+          mlPresentState.mlHwDepthTex = hwDepthTex;
 
           canvas.framebuffer = {
             msTex,
@@ -592,6 +598,8 @@ if (nativeMl) {
             fbo,
             tex,
             depthTex,
+            hwTex,
+            hwDepthTex,
           };
         } else {
           throw new Error('failed to present ml context');
@@ -609,6 +617,8 @@ if (nativeMl) {
         fbo: mlPresentState.mlFbo,
         tex: mlPresentState.mlTex,
         depthTex: mlPresentState.mlDepthTex,
+        hwTex: mlPresentState.mlHwColorTex,
+        hwDepthTex: mlPresentState.mlHwDepthTex,
       };
     }
   };
@@ -629,6 +639,8 @@ if (nativeMl) {
     mlPresentState.mlMsFbo = null;
     mlPresentState.mlMsTex = null;
     mlPresentState.mlMsDepthTex = null;
+    mlPresentState.mlHwColorTex = null;
+    mlPresentState.mlHwDepthTex = null;
     mlPresentState.mlGlContext = null;
     mlPresentState.mlCleanups = null;
     mlPresentState.mlHasPose = false;
@@ -1350,7 +1362,15 @@ const _bindWindow = (window, newWindowCb) => {
         timestamps.last = now;
       }
     } else if (mlPresentState.mlGlContext && mlPresentState.mlGlContext.canvas.ownerDocument.defaultView === window) {
-      mlPresentState.mlHasPose = mlPresentState.mlContext.WaitGetPoses(mlPresentState.mlGlContext, mlPresentState.mlMsFbo, renderWidth*2, renderHeight, transformArray, projectionArray, controllersArray);
+      mlPresentState.mlHasPose = mlPresentState.mlContext.WaitGetPoses(
+        mlPresentState.mlGlContext,
+        mlPresentState.mlMsFbo,
+        renderWidth*2, renderHeight,
+        transformArray,
+        projectionArray,
+        controllersArray,
+        graphicsBuffersArray
+      );
       if (args.performance) {
         const now = Date.now();
         const diff = now - timestamps.last;
@@ -1446,6 +1466,9 @@ const _bindWindow = (window, newWindowCb) => {
         controllersArrayIndex += 3;
 
         gamepads[1] = rightGamepad;
+        
+        mlPresentState.mlHwColorTex = graphicsBuffersArray[0];
+        mlPresentState.mlHwDepthTex = graphicsBuffersArray[1];
 
         // update ml frame
         window.top.updateVrFrame({
